@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { PetSeries, SuvStats, SuvType } from './types'
 import { parseFiles } from './lib/dicom/parseSeries'
+import { useDropzone } from './hooks/useDropzone'
 import TopBar from './components/TopBar'
 import DropZone from './components/DropZone'
 import SeriesPanel from './components/SeriesPanel'
@@ -14,7 +15,6 @@ export default function App() {
   const [suvType, setSuvType]         = useState<SuvType>('bw')
   const [manualWeight, setManualWeight] = useState<number | undefined>()
   const [manualDose, setManualDose]   = useState<number | undefined>()
-  const [isDragging, setIsDragging]   = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [stats, setStats]             = useState<SuvStats | null>(null)
   const [suvMax, setSuvMax]           = useState(10)
@@ -37,6 +37,8 @@ export default function App() {
     }
   }
 
+  const { isDragging, inputRef, handleInputChange, openFolderPicker } = useDropzone({ onFiles: handleFiles })
+
   const handleSeriesSelect = (uid: string) => {
     setSelectedUID(uid)
     setCurrentFrame(0)
@@ -53,8 +55,9 @@ export default function App() {
         <DropZone
           fullscreen
           isDragging={isDragging}
-          onFiles={handleFiles}
-          onDragChange={setIsDragging}
+          inputRef={inputRef}
+          onInputChange={handleInputChange}
+          onBrowseClick={openFolderPicker}
         />
       )}
 
@@ -77,8 +80,9 @@ export default function App() {
         <DropZone
           fullscreen
           isDragging
-          onFiles={handleFiles}
-          onDragChange={setIsDragging}
+          inputRef={inputRef}
+          onInputChange={handleInputChange}
+          onBrowseClick={openFolderPicker}
         />
       )}
 

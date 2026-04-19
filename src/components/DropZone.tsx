@@ -1,50 +1,26 @@
-import { useRef, type DragEvent } from 'react'
+import type { RefObject } from 'react'
 
 interface Props {
   fullscreen?: boolean
   isDragging: boolean
-  onFiles: (files: File[]) => void
-  onDragChange: (v: boolean) => void
+  inputRef: RefObject<HTMLInputElement | null>
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onBrowseClick: () => void
 }
 
-export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange }: Props) {
-  const folderRef = useRef<HTMLInputElement>(null)
-  const filesRef  = useRef<HTMLInputElement>(null)
-
-  const collect = (e: DragEvent) => {
-    const files: File[] = []
-    if (e.dataTransfer.items) {
-      for (const item of Array.from(e.dataTransfer.items)) {
-        if (item.kind === 'file') { const f = item.getAsFile(); if (f) files.push(f) }
-      }
-    } else {
-      files.push(...Array.from(e.dataTransfer.files))
-    }
-    return files
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) onFiles(Array.from(e.target.files))
-    e.target.value = ''
-  }
-
+export default function DropZone({ fullscreen, isDragging, inputRef, onInputChange, onBrowseClick }: Props) {
   return (
-    <div
-      style={{
-        position: fullscreen ? 'fixed' : 'relative',
-        inset: fullscreen ? 0 : undefined,
-        zIndex: fullscreen ? 1000 : undefined,
-        display: 'grid',
-        placeItems: 'center',
-        background: fullscreen ? 'rgba(13, 17, 23, 0.97)' : 'transparent',
-        pointerEvents: fullscreen ? 'auto' : undefined,
-        width: '100%',
-        height: '100%',
-      }}
-      onDragOver={e => { e.preventDefault(); onDragChange(true) }}
-      onDragLeave={() => onDragChange(false)}
-      onDrop={e => { e.preventDefault(); onDragChange(false); onFiles(collect(e)) }}
-    >
+    <div style={{
+      position: fullscreen ? 'fixed' : 'relative',
+      inset: fullscreen ? 0 : undefined,
+      zIndex: fullscreen ? 1000 : undefined,
+      display: 'grid',
+      placeItems: 'center',
+      background: fullscreen ? 'rgba(13, 17, 23, 0.97)' : 'transparent',
+      pointerEvents: fullscreen ? 'auto' : undefined,
+      width: '100%',
+      height: '100%',
+    }}>
       <div style={{
         width: 560,
         maxWidth: '90vw',
@@ -83,7 +59,7 @@ export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button
-            onClick={() => folderRef.current?.click()}
+            onClick={onBrowseClick}
             style={{
               padding: '10px 18px', fontSize: 15, fontWeight: 500,
               background: '#1f6feb', color: '#fff',
@@ -97,7 +73,10 @@ export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange
             Select folder…
           </button>
           <button
-            onClick={() => filesRef.current?.click()}
+            onClick={() => {
+              const el = document.getElementById('suv-file-picker') as HTMLInputElement | null
+              el?.click()
+            }}
             style={{
               padding: '10px 18px', fontSize: 15, fontWeight: 500,
               background: 'transparent', color: '#c9d1d9',
@@ -108,20 +87,22 @@ export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange
           </button>
         </div>
 
+        {/* folder picker */}
         <input
-          ref={folderRef}
+          ref={inputRef}
           type="file"
           {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
           multiple
           style={{ display: 'none' }}
-          onChange={handleChange}
+          onChange={onInputChange}
         />
+        {/* individual files picker */}
         <input
-          ref={filesRef}
+          id="suv-file-picker"
           type="file"
           multiple
           style={{ display: 'none' }}
-          onChange={handleChange}
+          onChange={onInputChange}
         />
 
         <div className="mono" style={{
