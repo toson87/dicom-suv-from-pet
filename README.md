@@ -1,6 +1,6 @@
 # PET SUV Calculator
 
-> **🌐 [toson87.github.io/dicom-suv-from-pet](https://toson87.github.io/dicom-suv-from-pet/)**
+## 🌐 [Use it now → https://toson87.github.io/dicom-suv-from-pet/](https://toson87.github.io/dicom-suv-from-pet/)
 
 A browser-based tool for computing Standardized Uptake Values (SUV) from PET DICOM series. All processing is 100% client-side — files never leave your browser.
 
@@ -74,3 +74,7 @@ SUVlbm = (Bq/mL × LBM_g)            / decay_corrected_dose   # James LBM
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+## Feedback
+
+Bug reports, feature requests, or general feedback welcome — reach out at minhson.to@gmail.com
