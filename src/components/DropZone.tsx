@@ -8,16 +8,14 @@ interface Props {
 }
 
 export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const folderRef = useRef<HTMLInputElement>(null)
+  const filesRef  = useRef<HTMLInputElement>(null)
 
   const collect = (e: DragEvent) => {
     const files: File[] = []
     if (e.dataTransfer.items) {
       for (const item of Array.from(e.dataTransfer.items)) {
-        if (item.kind === 'file') {
-          const f = item.getAsFile()
-          if (f) files.push(f)
-        }
+        if (item.kind === 'file') { const f = item.getAsFile(); if (f) files.push(f) }
       }
     } else {
       files.push(...Array.from(e.dataTransfer.files))
@@ -25,52 +23,109 @@ export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange
     return files
   }
 
-  const containerStyle: React.CSSProperties = fullscreen
-    ? { position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(13,17,23,0.97)' }
-    : { flex: 1 }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) onFiles(Array.from(e.target.files))
+    e.target.value = ''
+  }
 
   return (
     <div
       style={{
-        ...containerStyle,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
+        position: fullscreen ? 'fixed' : 'relative',
+        inset: fullscreen ? 0 : undefined,
+        zIndex: fullscreen ? 1000 : undefined,
+        display: 'grid',
+        placeItems: 'center',
+        background: fullscreen ? 'rgba(13, 17, 23, 0.97)' : 'transparent',
+        pointerEvents: fullscreen ? 'auto' : undefined,
+        width: '100%',
+        height: '100%',
       }}
       onDragOver={e => { e.preventDefault(); onDragChange(true) }}
       onDragLeave={() => onDragChange(false)}
       onDrop={e => { e.preventDefault(); onDragChange(false); onFiles(collect(e)) }}
     >
       <div style={{
-        border: `2px dashed ${isDragging ? '#388bfd' : '#30363d'}`,
-        borderRadius: 12, padding: '48px 64px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-        background: isDragging ? 'rgba(31,111,235,0.06)' : '#0d1117',
-        transition: 'border-color 0.15s, background 0.15s',
-        cursor: 'pointer',
-      }}
-        onClick={() => inputRef.current?.click()}
-      >
-        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-          <rect x="4" y="4" width="32" height="32" rx="8" stroke="#30363d" strokeWidth="1.5"/>
-          <circle cx="20" cy="20" r="7" stroke="#f0883e" strokeWidth="1.5"/>
-          <circle cx="20" cy="20" r="2.5" fill="#f0883e"/>
-          <line x1="20" y1="4" x2="20" y2="13" stroke="#30363d" strokeWidth="1.5"/>
-          <line x1="20" y1="27" x2="20" y2="36" stroke="#30363d" strokeWidth="1.5"/>
-          <line x1="4" y1="20" x2="13" y2="20" stroke="#30363d" strokeWidth="1.5"/>
-          <line x1="27" y1="20" x2="36" y2="20" stroke="#30363d" strokeWidth="1.5"/>
-        </svg>
-
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>
-            Drop PET DICOM files
-          </div>
-          <div style={{ fontSize: 14, color: '#8b949e' }}>
-            or click to browse — folder or individual .dcm files
-          </div>
+        width: 560,
+        maxWidth: '90vw',
+        padding: 48,
+        background: '#0d1117',
+        border: `2px dashed ${isDragging ? '#1f6feb' : '#30363d'}`,
+        borderRadius: 12,
+        textAlign: 'center',
+        transition: 'border-color 120ms, transform 120ms',
+        transform: isDragging ? 'scale(1.015)' : 'scale(1)',
+      }}>
+        <div
+          className={isDragging ? 'pulse-ring' : ''}
+          style={{
+            width: 80, height: 80,
+            margin: '0 auto 20px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle at center, rgba(31,111,235,0.35), transparent 70%)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" strokeWidth="1.5">
+            <path d="M3 16V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v8" strokeLinejoin="round" strokeLinecap="round"/>
+            <path d="M12 12v8M8 16l4-4 4 4" strokeLinejoin="round" strokeLinecap="round"/>
+          </svg>
         </div>
 
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 500, letterSpacing: '-0.01em' }}>
+          Drop DICOM files or folder
+        </h1>
+        <p style={{ margin: '8px 0 24px', color: '#8b949e', fontSize: 15 }}>
+          PET series — SUV calculated entirely in your browser using{' '}
+          <code className="mono" style={{ color: '#c9d1d9' }}>dicom-parser</code>.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button
+            onClick={() => folderRef.current?.click()}
+            style={{
+              padding: '10px 18px', fontSize: 15, fontWeight: 500,
+              background: '#1f6feb', color: '#fff',
+              border: 'none', borderRadius: 6, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" strokeLinejoin="round"/>
+            </svg>
+            Select folder…
+          </button>
+          <button
+            onClick={() => filesRef.current?.click()}
+            style={{
+              padding: '10px 18px', fontSize: 15, fontWeight: 500,
+              background: 'transparent', color: '#c9d1d9',
+              border: '1px solid #30363d', borderRadius: 6, cursor: 'pointer',
+            }}
+          >
+            Select files…
+          </button>
+        </div>
+
+        <input
+          ref={folderRef}
+          type="file"
+          {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleChange}
+        />
+        <input
+          ref={filesRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={handleChange}
+        />
+
         <div className="mono" style={{
-          marginTop: 4, padding: '10px 14px',
+          marginTop: 28, padding: '10px 14px',
           background: '#0b3d20', border: '1px solid #238636',
           borderRadius: 6, color: '#7ee787',
           fontSize: 13, letterSpacing: '0.02em',
@@ -78,17 +133,6 @@ export default function DropZone({ fullscreen, isDragging, onFiles, onDragChange
           100% CLIENT-SIDE &nbsp;·&nbsp; FILES NEVER LEAVE YOUR BROWSER
         </div>
       </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        style={{ display: 'none' }}
-        onChange={e => {
-          if (e.target.files) onFiles(Array.from(e.target.files))
-          e.target.value = ''
-        }}
-      />
     </div>
   )
 }
