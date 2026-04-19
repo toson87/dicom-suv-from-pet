@@ -13,6 +13,7 @@ export interface DicomFrame {
   cols: number
   rescaleSlope: number
   rescaleIntercept: number
+  sourceFile?: File   // kept for DICOM export; undefined if loaded pre-hook
 }
 
 export interface PetSeries {

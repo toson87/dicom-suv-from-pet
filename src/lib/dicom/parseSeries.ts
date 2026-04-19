@@ -54,7 +54,7 @@ async function parseFile(file: File): Promise<{ uid: string; series: Partial<Pet
   const instanceNumber   = parseInt(str(ds, TAGS.instanceNumber) ?? '0', 10)
   const sliceLocation    = num(ds, TAGS.sliceLocation)
 
-  const frame: DicomFrame = { instanceNumber, sliceLocation, pixelData, rows, cols, rescaleSlope, rescaleIntercept }
+  const frame: DicomFrame = { instanceNumber, sliceLocation, pixelData, rows, cols, rescaleSlope, rescaleIntercept, sourceFile: file }
 
   // RadiopharmaceuticalInformationSequence
   let radiopharmInfo: RadiopharmInfo | undefined
