@@ -77,4 +77,4 @@ MIT — see [LICENSE](LICENSE)
 
 ## Feedback
 
-Bug reports, feature requests, or general feedback welcome — reach out at minhson.to@gmail.com
+Bug reports, feature requests, or general feedback welcome — reach out at minhson.to@flinders.edu.au
