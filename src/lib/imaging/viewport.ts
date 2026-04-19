@@ -27,6 +27,12 @@ export const DEFAULT_VIEWPORT: ViewportState = {
   petOpacity: 0.7,
 }
 
+export const CT_PRESETS = [
+  { label: 'Soft tissue', center: 40,   width: 400  },
+  { label: 'Lung',        center: -600, width: 1600 },
+  { label: 'Bone',        center: 400,  width: 1800 },
+] as const
+
 export function useViewport() {
   const [vp, setVp] = useState<ViewportState>({ ...DEFAULT_VIEWPORT })
 

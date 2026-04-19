@@ -4,6 +4,56 @@ import { calcSuvForFrame, calcStats } from '../suv/calculate'
 import { LUTS } from './colormaps'
 import type { SuvStats } from '../../types'
 
+// CT as primary — grayscale base with optional PET colormap on top
+export function renderCtFrameToImageData(
+  frame: DicomFrame,
+  vp: ViewportState,
+  petFrame?: DicomFrame,
+  petSeries?: PetSeries,
+  suvType: SuvType = 'bw',
+  manualWeightKg?: number,
+  manualDoseBq?: number,
+): { imageData: ImageData; stats: SuvStats | null; suvArray: Float32Array | null } {
+  const { rows, cols } = frame
+  const n = rows * cols
+  const data = new Uint8ClampedArray(n * 4)
+  const lut = LUTS[vp.colormap]
+
+  const hasPet = !!petFrame && petSeries &&
+    petFrame.rows === rows && petFrame.cols === cols
+  const suv = hasPet ? calcSuvForFrame(petFrame!, petSeries!, suvType, manualWeightKg, manualDoseBq) : null
+  const stats = suv ? calcStats(suv) : null
+
+  const ctLow   = vp.ctCenter - vp.ctWidth / 2
+  const ctRange = Math.max(1, vp.ctWidth)
+  const suvMin  = vp.suvCenter - vp.suvWidth / 2
+  const suvMax  = vp.suvCenter + vp.suvWidth / 2
+  const suvRange = Math.max(0.001, suvMax - suvMin)
+
+  for (let i = 0; i < n; i++) {
+    const hu = frame.pixelData[i] * frame.rescaleSlope + frame.rescaleIntercept
+    const ctGray = Math.max(0, Math.min(255, Math.round((hu - ctLow) / ctRange * 255)))
+    let r = ctGray, g = ctGray, b = ctGray
+
+    if (suv && suv[i] > suvMin) {
+      const t = Math.max(0, Math.min(1, (suv[i] - suvMin) / suvRange))
+      const li = Math.round(t * 255) * 3
+      const pr = lut[li], pg = lut[li + 1], pb = lut[li + 2]
+      const alpha = vp.petOpacity
+      r = Math.round(pr * alpha + ctGray * (1 - alpha))
+      g = Math.round(pg * alpha + ctGray * (1 - alpha))
+      b = Math.round(pb * alpha + ctGray * (1 - alpha))
+    }
+
+    data[i * 4]     = r
+    data[i * 4 + 1] = g
+    data[i * 4 + 2] = b
+    data[i * 4 + 3] = 255
+  }
+
+  return { imageData: new ImageData(data, cols, rows), stats, suvArray: suv }
+}
+
 export function renderFrameToImageData(
   frame: DicomFrame,
   series: PetSeries,
@@ -12,7 +62,7 @@ export function renderFrameToImageData(
   manualWeightKg?: number,
   manualDoseBq?: number,
   ctFrame?: DicomFrame,
-): { imageData: ImageData; stats: SuvStats | null } {
+): { imageData: ImageData; stats: SuvStats | null; suvArray: Float32Array | null } {
   const { rows, cols } = frame
   const n = rows * cols
   const data = new Uint8ClampedArray(n * 4)
@@ -61,5 +111,5 @@ export function renderFrameToImageData(
     data[i * 4 + 3] = 255
   }
 
-  return { imageData: new ImageData(data, cols, rows), stats }
+  return { imageData: new ImageData(data, cols, rows), stats, suvArray: suv }
 }

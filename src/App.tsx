@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { PetSeries, SuvStats, SuvType } from './types'
 import { parseFiles } from './lib/dicom/parseSeries'
+import { exportSuvSeries } from './lib/dicom/exportSuv'
 import { useDropzone } from './hooks/useDropzone'
 import { useViewport } from './lib/imaging/viewport'
 import TopBar from './components/TopBar'
@@ -9,24 +10,35 @@ import SeriesPanel from './components/SeriesPanel'
 import ViewerPanel from './components/ViewerPanel'
 import StatsPanel from './components/StatsPanel'
 
+function isPet(s: PetSeries) { return s.modality === 'PT' || s.modality === 'NM' }
+
 export default function App() {
-  const [allSeries, setAllSeries]       = useState<PetSeries[]>([])
-  const [selectedUID, setSelectedUID]   = useState<string | null>(null)
-  const [selectedCtUID, setSelectedCtUID] = useState<string | null>(null)
-  const [currentFrame, setCurrentFrame] = useState(0)
-  const [suvType, setSuvType]           = useState<SuvType>('bw')
-  const [manualWeight, setManualWeight] = useState<number | undefined>()
-  const [manualDose, setManualDose]     = useState<number | undefined>()
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [stats, setStats]               = useState<SuvStats | null>(null)
+  const [allSeries, setAllSeries]         = useState<PetSeries[]>([])
+  const [selectedUID, setSelectedUID]     = useState<string | null>(null)   // any modality
+  const [petOverlayUID, setPetOverlayUID] = useState<string | null>(null)   // PET for CT overlay
+  const [petOverlayEnabled, setPetOverlayEnabled] = useState(true)
+  const [currentFrame, setCurrentFrame]   = useState(0)
+  const [suvType, setSuvType]             = useState<SuvType>('bw')
+  const [manualWeight, setManualWeight]   = useState<number | undefined>()
+  const [manualDose, setManualDose]       = useState<number | undefined>()
+  const [isProcessing, setIsProcessing]   = useState(false)
+  const [stats, setStats]                 = useState<SuvStats | null>(null)
+  const [exporting, setExporting]         = useState(false)
+  const [exportError, setExportError]     = useState<string | null>(null)
 
   const { vp, update: updateVp, resetTransform, resetAll } = useViewport()
 
-  const petSeries = allSeries.filter(s => s.modality === 'PT' || s.modality === 'NM')
+  const petSeries = allSeries.filter(isPet)
   const ctSeries  = allSeries.filter(s => s.modality === 'CT')
-  const hasFiles  = petSeries.length > 0
+  const hasFiles  = allSeries.length > 0
 
-  const selectedSeries = petSeries.find(s => s.seriesInstanceUID === selectedUID) ?? null
+  const selectedSeries = allSeries.find(s => s.seriesInstanceUID === selectedUID) ?? null
+  const isPrimaryCt = selectedSeries?.modality === 'CT'
+
+  // PET series used for SUV stats and export
+  const petSeriesForStats = isPrimaryCt
+    ? (petSeries.find(s => s.seriesInstanceUID === petOverlayUID) ?? petSeries[0] ?? null)
+    : selectedSeries
 
   const handleFiles = async (files: File[]) => {
     setIsProcessing(true)
@@ -34,19 +46,18 @@ export default function App() {
       const parsed = await parseFiles(files)
       if (parsed.length === 0) return
       setAllSeries(prev => {
-        // Merge: keep existing, add new (allow loading CT after PET)
         const existingUIDs = new Set(prev.map(s => s.seriesInstanceUID))
         const incoming = parsed.filter(s => !existingUIDs.has(s.seriesInstanceUID))
         return [...prev, ...incoming]
       })
-      const firstPet = parsed.find(s => s.modality === 'PT' || s.modality === 'NM')
+      // Auto-select first PET on initial load
+      const firstPet = parsed.find(isPet)
       if (firstPet && !selectedUID) {
         setSelectedUID(firstPet.seriesInstanceUID)
         setCurrentFrame(0)
       }
-      // Auto-select CT for overlay if exactly one CT loaded
-      const firstCt = parsed.find(s => s.modality === 'CT')
-      if (firstCt && !selectedCtUID) setSelectedCtUID(firstCt.seriesInstanceUID)
+      // Track first PET for CT overlay
+      if (firstPet && !petOverlayUID) setPetOverlayUID(firstPet.seriesInstanceUID)
     } finally {
       setIsProcessing(false)
     }
@@ -55,8 +66,35 @@ export default function App() {
   const { isDragging, inputRef, handleInputChange, openFolderPicker } = useDropzone({ onFiles: handleFiles })
 
   const handleSeriesSelect = (uid: string) => {
+    const s = allSeries.find(s => s.seriesInstanceUID === uid)
+    if (!s) return
     setSelectedUID(uid)
     setCurrentFrame(0)
+    // When switching to CT, ensure petOverlayUID is set
+    if (s.modality === 'CT' && !petOverlayUID) {
+      const first = allSeries.find(isPet)
+      if (first) setPetOverlayUID(first.seriesInstanceUID)
+    }
+  }
+
+  const handleExport = async () => {
+    if (!petSeriesForStats) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      const manualDoseBq = manualDose ? manualDose * 1e6 : undefined
+      const blob = await exportSuvSeries(petSeriesForStats, suvType, manualWeight, manualDoseBq)
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      a.download = `${petSeriesForStats.seriesDescription ?? 'PET'}_SUV${suvType.toUpperCase()}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setExportError((err as Error).message)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -94,13 +132,20 @@ export default function App() {
         minHeight: 0,
         visibility: hasFiles ? 'visible' : 'hidden',
       }}>
-        <SeriesPanel series={petSeries} selectedUID={selectedUID} onSelect={handleSeriesSelect} />
+        <SeriesPanel
+          series={petSeries}
+          ctSeries={ctSeries}
+          selectedUID={selectedUID}
+          onSelect={handleSeriesSelect}
+        />
 
         <ViewerPanel
           series={selectedSeries}
-          ctSeries={ctSeries}
-          selectedCtUID={selectedCtUID}
-          onSelectCt={setSelectedCtUID}
+          petSeries={petSeries}
+          overlayPetUID={petOverlayUID}
+          onOverlayPetChange={setPetOverlayUID}
+          petOverlayEnabled={petOverlayEnabled}
+          onPetOverlayToggle={setPetOverlayEnabled}
           currentFrame={currentFrame}
           onFrameChange={setCurrentFrame}
           suvType={suvType}
@@ -113,7 +158,7 @@ export default function App() {
         />
 
         <StatsPanel
-          series={selectedSeries}
+          series={petSeriesForStats}
           stats={stats}
           suvType={suvType}
           onSuvTypeChange={t => { setSuvType(t); resetAll() }}
@@ -121,6 +166,9 @@ export default function App() {
           manualDose={manualDose}
           onManualWeightChange={setManualWeight}
           onManualDoseChange={setManualDose}
+          onExport={handleExport}
+          exporting={exporting}
+          exportError={exportError}
         />
       </div>
 

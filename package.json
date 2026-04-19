@@ -1,6 +1,5 @@
 {
   "name": "dicom-suv-from-pet",
-  "private": true,
   "version": "0.1.0",
   "description": "Browser-based SUV calculator from PET DICOM. All processing is done client-side — files never leave your browser.",
   "license": "MIT",

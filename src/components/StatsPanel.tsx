@@ -11,6 +11,9 @@ interface Props {
   manualDose?: number
   onManualWeightChange: (v: number | undefined) => void
   onManualDoseChange: (v: number | undefined) => void
+  onExport: () => void
+  exporting: boolean
+  exportError: string | null
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -33,6 +36,7 @@ function Section({ title }: { title: string }) {
 export default function StatsPanel({
   series, stats, suvType, onSuvTypeChange,
   manualWeight, manualDose, onManualWeightChange, onManualDoseChange,
+  onExport, exporting, exportError,
 }: Props) {
   const inputStyle: React.CSSProperties = {
     background: '#21262d', border: '1px solid #30363d', borderRadius: 4,
@@ -175,6 +179,24 @@ export default function StatsPanel({
               </div>
             ))}
           </>
+        )}
+      </div>
+
+      <div style={{ padding: '10px 14px', borderTop: '1px solid #21262d', flexShrink: 0 }}>
+        <button
+          onClick={onExport}
+          disabled={!series || exporting}
+          style={{
+            width: '100%', padding: '7px 0', borderRadius: 4, fontSize: 13, border: 'none',
+            cursor: series && !exporting ? 'pointer' : 'not-allowed',
+            background: series && !exporting ? '#238636' : '#21262d',
+            color: series && !exporting ? '#fff' : '#484f58',
+          }}
+        >
+          {exporting ? 'Exporting…' : 'Export SUV DICOM'}
+        </button>
+        {exportError && (
+          <div style={{ fontSize: 11, color: '#ff8a80', marginTop: 4 }}>{exportError}</div>
         )}
       </div>
     </aside>
